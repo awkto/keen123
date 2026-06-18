@@ -10,7 +10,7 @@
   <script src="https://v8.js-dos.com/latest/js-dos.js"></script>
   <!-- vendored: tiny zip builder used to assemble .jsdos bundles from your own data files -->
   <script src="js/fflate.min.js"></script>
-  <link rel="stylesheet" href="css/app.css?v=10">
+  <link rel="stylesheet" href="css/app.css?v=11">
 </head>
 <body>
   <header id="topbar">
@@ -55,6 +55,17 @@
 
       <div id="file-status" class="file-status" hidden></div>
       <button id="play-byo" class="play-btn" disabled>▶ Play</button>
+    </section>
+
+    <section class="card saves-card" id="saves-card">
+      <h2>💾 Saved games</h2>
+      <p>Your progress is saved in this browser automatically. Download a save to back it up or
+        move it to another device; upload one to restore it.</p>
+      <div id="saves-list"></div>
+      <div class="save-actions">
+        <button id="save-upload" class="save-btn">⤒ Upload a save</button>
+        <input id="save-file-input" type="file" accept=".jsdos,.zip,application/octet-stream" hidden>
+      </div>
     </section>
 
     <section class="card settings-card">
@@ -132,6 +143,6 @@
     </p>
   </footer>
 
-  <script src="js/app.js?v=10"></script>
+  <script src="js/app.js?v=11"></script>
 </body>
 </html>

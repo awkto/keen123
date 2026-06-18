@@ -113,6 +113,14 @@
       </div>
     </div>
 
+    <!-- Touch keyboard: focusing the hidden input pops the device's soft keyboard
+         (which overlays the on-screen controls); keystrokes are forwarded to the
+         emulator. Handy for typing save-game names. -->
+    <button id="kbd-btn" class="kbd-btn" title="Keyboard" aria-label="Toggle keyboard">⌨</button>
+    <input id="kbd-proxy" class="kbd-proxy" type="text" inputmode="text"
+           autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+           tabindex="-1" aria-hidden="true">
+
     <button id="back-btn" class="back-btn" title="Quit to launcher">✕ Quit</button>
   </div>
 

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Commander Keen 1·2·3 — in your browser</title>
+  <meta name="description" content="Play Commander Keen: Invasion of the Vorticons (episodes 1, 2, 3) in your browser. Keen 1 shareware playable instantly; bring your own data for Keen 2 and 3.">
+  <!-- js-dos v8 (DOSBox compiled to WebAssembly) -->
+  <link rel="stylesheet" href="https://v8.js-dos.com/latest/js-dos.css">
+  <script src="https://v8.js-dos.com/latest/js-dos.js"></script>
+  <!-- vendored: tiny zip builder used to assemble .jsdos bundles from your own data files -->
+  <script src="js/fflate.min.js"></script>
+  <link rel="stylesheet" href="css/app.css?v=1">
+</head>
+<body>
+  <header id="topbar">
+    <h1>Commander&nbsp;Keen <span class="eps">1 · 2 · 3</span></h1>
+    <p class="tagline">Invasion of the Vorticons — in your browser.</p>
+  </header>
+
+  <main id="launcher">
+    <!-- Server/kiosk mode: populated from games/manifest.json when the app runs
+         from the container with a mounted data dir. Hides the cards below. -->
+    <section id="server-games" class="card" hidden>
+      <h2>Games</h2>
+      <p>Detected on the server — click to play.</p>
+      <div id="server-games-list"></div>
+    </section>
+
+    <section class="card demo-card" id="demo-card">
+      <h2>Keen 1 <span class="badge free">free shareware</span></h2>
+      <p>Marooned on Mars — episode 1 shareware (v1.31). Freely redistributable, no files needed.</p>
+      <button id="play-keen1" class="play-btn">▶ Play Keen 1 (demo)</button>
+    </section>
+
+    <section class="card byo-card" id="byo-card">
+      <h2>Keen 2 &amp; 3 <span class="badge byo">bring your own data</span></h2>
+      <p>
+        Keen 2 (<em>The Earth Explodes</em>) and Keen 3 (<em>Keen Must Die!</em>) are
+        commercial — buy them on <a href="https://www.gog.com/game/commander_keen_complete_pack" target="_blank" rel="noopener">GOG</a>
+        or <a href="https://store.steampowered.com/app/9180/Commander_Keen_Pack/" target="_blank" rel="noopener">Steam</a>,
+        then drop the data files here. Nothing is uploaded — everything runs in your browser.
+      </p>
+
+      <div id="dropzone" class="dropzone" tabindex="0">
+        <div class="dz-inner">
+          <div class="dz-icon">📁</div>
+          <p><strong>Drop game files here</strong> or click to choose</p>
+          <p class="dz-hint">Select <em>all</em> of the episode's files — the <code>*.EXE</code> plus every
+            <code>*.CK?</code> file (<code>EGAHEAD</code>, <code>EGALATCH</code>, <code>EGASPRIT</code>,
+            <code>LEVEL*</code>, …). You can also use your own full Keen 1 files.</p>
+        </div>
+        <input id="file-input" type="file" multiple hidden>
+      </div>
+
+      <div id="file-status" class="file-status" hidden></div>
+      <button id="play-byo" class="play-btn" disabled>▶ Play</button>
+    </section>
+
+    <section class="card settings-card">
+      <h2>⚙ Settings</h2>
+      <p>Applied when you start a game. Saves persist automatically in your browser.</p>
+      <label class="setting">Aspect ratio
+        <select id="set-aspect">
+          <option value="AsIs">As-is — sharp (default)</option>
+          <option value="4/3">4:3 — classic CRT</option>
+          <option value="5/4">5:4</option>
+          <option value="16/10">16:10</option>
+          <option value="16/9">16:9 — widescreen (stretched)</option>
+          <option value="1/1">1:1 — square pixels</option>
+          <option value="Fit">Fit window — fill the screen</option>
+        </select>
+      </label>
+      <label class="setting">Pixels
+        <select id="set-rendering">
+          <option value="pixelated">Crisp — pixel-perfect (default)</option>
+          <option value="smooth">Smooth — blurred</option>
+        </select>
+      </label>
+      <label class="setting">Touch controls
+        <select id="set-touch">
+          <option value="auto">Auto — on for touch devices (default)</option>
+          <option value="on">Always on</option>
+          <option value="off">Off</option>
+        </select>
+      </label>
+    </section>
+  </main>
+
+  <!-- The js-dos player mounts here when a game launches -->
+  <div id="game-stage" class="game-stage" hidden>
+    <div id="dos" class="dos-window"></div>
+
+    <!-- On-screen controls for touch devices. Sends key events straight to the
+         emulator. Keen Vorticons defaults: arrows move, Ctrl=Jump, Alt=Pogo, Space=Fire. -->
+    <div id="touch-controls" class="touch-controls" hidden>
+      <div class="stick" id="stick" aria-label="movement joystick">
+        <div class="stick-knob" id="stick-knob"></div>
+      </div>
+
+      <div class="menu-keys">
+        <button class="mbtn" data-keys="257" aria-label="Enter">⏎</button>
+        <button class="mbtn" data-keys="256" aria-label="Escape">ESC</button>
+      </div>
+
+      <div class="actions">
+        <button class="abtn pogo" data-keys="342">POGO</button>
+        <button class="abtn jump" data-keys="341">JUMP</button>
+        <button class="abtn shoot" data-keys="32">SHOOT</button>
+      </div>
+    </div>
+
+    <button id="back-btn" class="back-btn" title="Quit to launcher">✕ Quit</button>
+  </div>
+
+  <footer id="footer">
+    <p>
+      Powered by <a href="https://js-dos.com" target="_blank" rel="noopener">js-dos</a> (DOSBox → WebAssembly).
+      Runs 100% in your browser. <a href="https://github.com/awkto/keen123" target="_blank" rel="noopener">Source on GitHub</a>.
+    </p>
+    <p class="legal">
+      Commander Keen © id Software. Keen 1 shareware is freely redistributable; Keen 2/3 data are not bundled — supply your own.
+    </p>
+  </footer>
+
+  <script src="js/app.js?v=1"></script>
+</body>
+</html>

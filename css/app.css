@@ -1,0 +1,298 @@
+:root {
+  --bg: #1a1033;
+  --bg2: #2a1a4a;
+  --panel: #241640;
+  --accent: #ffcc33;
+  --accent2: #5ad1ff;
+  --text: #ece6ff;
+  --muted: #a89cc8;
+  --border: #4a3a7a;
+  --good: #6ee06e;
+}
+
+* { box-sizing: border-box; }
+
+/* The `hidden` attribute must always win, even over rules like
+   `.game-stage { display: flex }` below (otherwise the full-screen game
+   overlay covers the launcher from page load — black screen + Quit button). */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: radial-gradient(circle at 50% -10%, var(--bg2), var(--bg) 60%);
+  color: var(--text);
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+}
+
+#topbar {
+  text-align: center;
+  padding: 2.2rem 1rem 0.5rem;
+}
+#topbar h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  letter-spacing: 1px;
+  text-shadow: 0 2px 0 #000a;
+}
+#topbar h1 .eps {
+  color: var(--accent);
+}
+.tagline {
+  color: var(--muted);
+  margin: 0.4rem 0 0;
+  font-size: 1rem;
+}
+
+#launcher {
+  max-width: 900px;
+  margin: 1.5rem auto;
+  padding: 0 1rem 3rem;
+  display: grid;
+  gap: 1.2rem;
+  grid-template-columns: 1fr 1fr;
+}
+@media (max-width: 720px) {
+  #launcher { grid-template-columns: 1fr; }
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.3rem 1.4rem;
+  box-shadow: 0 8px 30px #0006;
+}
+.card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.3rem;
+}
+.card p {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0.4rem 0;
+  font-size: 0.95rem;
+}
+.card a { color: var(--accent2); }
+
+.badge {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0.2em 0.6em;
+  border-radius: 999px;
+  vertical-align: middle;
+  font-weight: 700;
+}
+.badge.free { background: #1f5e2f; color: #cffccf; }
+.badge.byo  { background: #5e4a1f; color: #ffe9b0; }
+
+.play-btn {
+  margin-top: 1rem;
+  width: 100%;
+  padding: 0.8rem 1rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1a1033;
+  background: var(--accent);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform .08s ease, filter .15s ease;
+}
+.play-btn:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+.play-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+.dropzone {
+  margin-top: 1rem;
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 1.2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.dropzone:hover, .dropzone:focus, .dropzone.dragover {
+  border-color: var(--accent);
+  background: #ffcc3310;
+  outline: none;
+}
+.dz-icon { font-size: 1.8rem; }
+.dropzone p { margin: 0.3rem 0; }
+.dz-hint { font-size: 0.8rem !important; }
+.dropzone code {
+  background: #0004;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+.file-status {
+  margin-top: 0.9rem;
+  font-size: 0.85rem;
+  background: #0003;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  line-height: 1.5;
+}
+.file-status .ok { color: var(--good); }
+.file-status .miss { color: #ff9a9a; }
+
+.game-stage {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 1000;
+  display: flex;
+}
+.dos-window { flex: 1; width: 100%; height: 100%; }
+.back-btn {
+  position: fixed;
+  top: 10px;
+  right: 12px;
+  z-index: 1001;
+  background: #000a;
+  color: #fff;
+  border: 1px solid #fff5;
+  border-radius: 8px;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.back-btn:hover { background: #c0392b; }
+
+#footer {
+  text-align: center;
+  padding: 1.5rem 1rem 2.5rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+#footer a { color: var(--accent2); }
+#footer .legal { font-size: 0.75rem; opacity: 0.8; margin-top: 0.4rem; }
+
+/* ---- settings panel ---- */
+.settings-card { grid-column: 1 / -1; }
+.setting {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.6rem 0;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+.setting select {
+  flex: 0 1 280px;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  background: #0003;
+  color: var(--text);
+  border: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+/* ---- touch controls (mobile split view) ---- */
+.touch-controls { display: none; }
+
+/* When touch mode is active, split the stage: top half game, bottom half controls. */
+.game-stage.touch { flex-direction: column; }
+.game-stage.touch .dos-window { flex: 1 1 50%; min-height: 0; }
+.game-stage.touch .touch-controls {
+  flex: 1 1 50%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 2vmin;
+  padding: 2vmin 3vmin calc(2vmin + env(safe-area-inset-bottom));
+  background: #120a26;
+  border-top: 2px solid var(--border);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* movement joystick (replaces the old empty-center d-pad) */
+.stick {
+  position: relative;
+  justify-self: center;
+  width: min(42vw, 36vh);
+  height: min(42vw, 36vh);
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, #2a1a4a, #160d30 70%);
+  border: 2px solid var(--border);
+  touch-action: none;
+}
+.stick-knob {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 42%; height: 42%;
+  margin-left: -21%; margin-top: -21%;
+  border-radius: 50%;
+  background: var(--accent2);
+  border: 3px solid #ffffff55;
+  box-shadow: 0 2px 10px #000a;
+  will-change: transform;
+}
+
+.menu-keys {
+  justify-self: center;
+  display: flex;
+  flex-direction: column;
+  gap: 3vmin;
+}
+.mbtn {
+  min-width: 14vmin;
+  padding: 1.6vmin 0;
+  border: 1px solid var(--border);
+  background: #2a1a4a;
+  color: var(--text);
+  border-radius: 10px;
+  font-size: 1rem;
+  touch-action: none;
+}
+.mbtn.active { background: var(--accent); color: #1a1033; }
+
+.actions {
+  justify-self: center;
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 5vmin;            /* spread the action buttons further apart */
+  align-items: center;
+}
+.abtn {
+  width: min(20vw, 16vh);
+  height: min(20vw, 16vh);
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  font-weight: 800;
+  font-size: clamp(0.7rem, 2.6vmin, 1.1rem);
+  color: #1a1033;
+  touch-action: none;
+}
+.abtn.pogo  { background: var(--accent2); grid-column: 1; grid-row: 1; }
+.abtn.jump  { background: #6ee06e;        grid-column: 2; grid-row: 1; }
+.abtn.shoot { background: #ff6b6b; grid-column: 1 / -1; justify-self: center; }
+.abtn.active { filter: brightness(0.7); transform: scale(0.95); }
+
+/* In touch mode, move the js-dos sidebar (save/keyboard/fullscreen/settings) out of
+   the top-left of the play area to a horizontal strip across the TOP of the game pane,
+   centered and far from the bottom thumb controls. Reclaim the canvas's left offset. */
+.game-stage.touch #dos .sidebar,
+.game-stage.touch #dos .sidebar-thin {
+  flex-direction: row !important;
+  width: 100% !important;
+  height: auto !important;
+  top: 0 !important;
+  bottom: auto !important;
+  left: 0 !important;
+  justify-content: center !important;
+  gap: 3vw;
+  padding: 3px 0 !important;
+  background: linear-gradient(0deg, hsl(var(--b3)), hsl(var(--b2))) !important;
+}
+.game-stage.touch #dos .left-12 { left: 0 !important; }
+
+/* server/kiosk games list */
+#server-games-list { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.8rem; }

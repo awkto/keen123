@@ -228,6 +228,13 @@ function sendKey(code, down) {
 function bindTouchButton(btn) {
   const keys = (btn.dataset.keys || "").split(",").map(Number).filter(Boolean);
   if (!keys.length) return;
+  // Optional stagger (ms) between successive key-downs. The Galaxy pogo
+  // super-jump only boosts if Jump lands a frame or two AFTER the pogo has
+  // mounted — pressing both on the same frame (from a standstill) just gives a
+  // tiny bounce. data-keys order sets the sequence (e.g. pogo first, then jump).
+  // (Vorticons SHOOT = Jump+Pogo combo is left un-staggered so fire registers.)
+  const stagger = parseInt(btn.dataset.stagger || "0", 10) || 0;
+  let timers = [];
 
   const press = (e) => {
     e.preventDefault();
@@ -235,10 +242,15 @@ function bindTouchButton(btn) {
     // whole hold — the OS can't reroute it into a long-press gesture.
     try { btn.setPointerCapture(e.pointerId); } catch (_) {}
     btn.classList.add("active");
-    keys.forEach((k) => sendKey(k, true));
     if (e.pointerId != null) activeByPointer.set(e.pointerId, keys);
+    timers.forEach(clearTimeout); timers = [];
+    keys.forEach((k, i) => {
+      if (stagger && i > 0) timers.push(setTimeout(() => sendKey(k, true), stagger * i));
+      else sendKey(k, true);
+    });
   };
   const release = (e) => {
+    timers.forEach(clearTimeout); timers = [];
     btn.classList.remove("active");
     keys.forEach((k) => sendKey(k, false));
     if (e && e.pointerId != null) activeByPointer.delete(e.pointerId);

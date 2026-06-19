@@ -10,7 +10,7 @@
   <script src="https://v8.js-dos.com/latest/js-dos.js"></script>
   <!-- vendored: tiny zip builder used to assemble .jsdos bundles from your own data files -->
   <script src="js/fflate.min.js"></script>
-  <link rel="stylesheet" href="css/app.css?v=13">
+  <link rel="stylesheet" href="css/app.css?v=14">
 </head>
 <body>
   <header id="topbar">
@@ -113,6 +113,17 @@
     <div id="touch-controls" class="touch-controls" hidden>
       <div class="stick" id="stick" aria-label="movement joystick">
         <div class="stick-knob" id="stick-knob"></div>
+      </div>
+
+      <!-- In-game save (Vorticons): F5 opens the Save Game menu, 1-4 pick a slot.
+           (There's no in-game Load — you Restore from the startup menu.) Row sits
+           across the top of the controls area, zeliard-style. -->
+      <div class="top-keys" id="top-keys">
+        <button class="nbtn save" data-keys="294">SAVE</button>
+        <button class="nbtn" data-keys="49">1</button>
+        <button class="nbtn" data-keys="50">2</button>
+        <button class="nbtn" data-keys="51">3</button>
+        <button class="nbtn" data-keys="52">4</button>
       </div>
 
       <!-- Y / N for the game's keyboard confirm prompts (top-right). -->

@@ -359,6 +359,35 @@ html, body {
   right: 3vw;
 }
 
+/* In-game save row (Vorticons F5 + slot numbers 1-4) — across the top of the
+   controls area, clear of the joystick/action thumbs. */
+.top-keys { display: none; }
+.game-stage.touch .top-keys {
+  position: absolute;
+  top: 1.5vw;
+  left: 0; right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 1.5vw;
+  padding: 0 3vw;
+  pointer-events: none;       /* only the buttons capture taps */
+}
+.top-keys .nbtn {
+  pointer-events: auto;
+  flex: 0 1 13vw;
+  min-width: 0;
+  padding: 1.1vw 0;
+  border: 1px solid var(--border);
+  background: #2a1a4a;
+  color: var(--text);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  touch-action: none;
+}
+.top-keys .nbtn.save { background: var(--accent2); color: #1a1033; flex-basis: 17vw; }
+.top-keys .nbtn.active { filter: brightness(0.7); }
+
 /* Y / N confirm keys — bottom-right, just left of the Enter key (both engines). */
 .yn-keys { display: none; }
 .game-stage.touch .yn-keys {

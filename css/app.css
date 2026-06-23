@@ -501,3 +501,16 @@ html, body {
 
 /* server/kiosk games list */
 #server-games-list { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.8rem; }
+
+
+/* ---- visual filters (CRT / scanlines) -------------------------------------
+   WebGL canvas sized to the game canvas, blended over it; chosen in Settings.
+   See js/app.js for the dual-mode (overlay / sampling) implementation. */
+.crt-canvas {
+  display: none;
+  position: absolute;
+  z-index: 1002;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+.crt-canvas.on { display: block; }

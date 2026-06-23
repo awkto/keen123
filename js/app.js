@@ -144,7 +144,7 @@ async function captureSave(key) {
 
 // ---- settings (persisted in localStorage) ----------------------------------
 
-const SETTING_DEFAULTS = { aspect: "4/3", rendering: "pixelated", touch: "auto", engine: "dosbox" };
+const SETTING_DEFAULTS = { aspect: "4/3", rendering: "pixelated", touch: "auto", engine: "dosbox", filter: "off" };
 const getSetting = (k) => localStorage.getItem("keen." + k) || SETTING_DEFAULTS[k];
 const setSetting = (k, v) => localStorage.setItem("keen." + k, v);
 
@@ -214,6 +214,10 @@ async function launch(url, key) {
       }
     },
   });
+
+  // Apply the chosen visual filter and keep its overlay glued to the canvas.
+  startCrtSync();
+  renderCrt();
 
   // Safety-net autosave while playing (covers the game's in-menu saves).
   clearInterval(saveTimer);
@@ -539,6 +543,210 @@ function setupSaveLoad() {
   }, true);
 }
 
+// ---- visual filters (CRT / scanlines) --------------------------------------
+// Two render paths, both into a WebGL canvas sized to the game canvas:
+//  • OVERLAY (default, zero-cost): a static multiplier drawn once and composited
+//    via mix-blend-mode:multiply. Can't move pixels, so scanlines/mask/vignette
+//    only. Pitch is locked to the EGA 320x200 grid so lines sit on game rows.
+//  • SAMPLE (curved): js-dos frames can't be read directly, but captureStream
+//    taps the compositor output — we feed that into a <video>, upload it as a
+//    texture every frame and re-render it WARPED (real barrel curvature) with
+//    scanlines/mask/vignette baked in. Our opaque canvas then covers the flat
+//    original. Costs ~1 frame of display latency + 1 upload+draw per frame, only
+//    while a sampling filter is selected; the emulator (worker) is unaffected.
+const GAME_W = 320, GAME_H = 200;        // EGA resolution (Keen/Zeliard run 320x200)
+const FILTERS = {
+  off:       null,
+  scanlines: { type: 1, scan: 0.45, mask: 0,    vig: 0,    css: "" },
+  crt:       { type: 3, scan: 0.45, mask: 0.18, vig: 0.45, css: "" },
+  curved:    { sample: true, scan: 0.42, mask: 0.16, vig: 0.50, curve: 0.12, css: "" },
+  rgb:       { type: 2, scan: 0,    mask: 0.22, vig: 0,    css: "" },
+  soft:      { type: 1, scan: 0.30, mask: 0,    vig: 0,    css: "blur(0.6px) saturate(1.06)" },
+  amber:     { type: 1, scan: 0.42, mask: 0,    vig: 0.25, css: "grayscale(1) sepia(1) hue-rotate(-18deg) saturate(3.2) brightness(1.05)" },
+  green:     { type: 1, scan: 0.42, mask: 0,    vig: 0.25, css: "grayscale(1) sepia(1) hue-rotate(72deg) saturate(2.6) brightness(1.04)" },
+};
+let crtStop = null;     // resize/poll observer teardown
+let crtGL = null;       // { gl, buf, overlay, sample, tex }
+let crtRAF = 0;         // sampling render-loop handle
+let crtVideo = null, crtStream = null;
+
+const CRT_VS = `attribute vec2 aPos; varying vec2 vUv;
+  void main(){ vUv = vec2(aPos.x*0.5+0.5, 1.0-(aPos.y*0.5+0.5)); gl_Position = vec4(aPos,0.0,1.0); }`;
+// Overlay: outputs a multiplier (composited via mix-blend-mode:multiply).
+const CRT_FS_OVERLAY = `precision highp float; varying vec2 vUv;
+  uniform vec2 uGame; uniform int uFilter; uniform float uScan; uniform float uMask; uniform float uVig;
+  void main(){
+    vec3 m = vec3(1.0); vec2 uv = vUv;
+    if (uFilter==1 || uFilter==3){ float s=sin(3.14159265*uv.y*uGame.y); m*=mix(1.0-uScan,1.0,s*s); }
+    if (uFilter==2 || uFilter==3){ float ph=mod(floor(uv.x*uGame.x),3.0); vec3 t=vec3(1.0-uMask);
+      if(ph<0.5)t.r=1.0; else if(ph<1.5)t.g=1.0; else t.b=1.0; m*=t; }
+    if (uVig>0.0){ vec2 p=uv*2.0-1.0; m*=1.0-uVig*dot(p,p)*0.5; }
+    gl_FragColor = vec4(m, 1.0);
+  }`;
+// Sample: warps the captured game texture (real curvature) + bakes in the CRT look.
+const CRT_FS_SAMPLE = `precision highp float; varying vec2 vUv;
+  uniform sampler2D uTex; uniform vec2 uGame; uniform float uScan; uniform float uMask; uniform float uVig; uniform float uCurve;
+  void main(){
+    vec2 p = vUv*2.0-1.0;
+    p *= 1.0 + uCurve*dot(p,p);                       // barrel warp the SAMPLE coords -> pixels bend
+    vec2 uv = p*0.5+0.5;
+    if (uv.x<0.0||uv.x>1.0||uv.y<0.0||uv.y>1.0){ gl_FragColor=vec4(0.0,0.0,0.0,1.0); return; }
+    vec3 c = texture2D(uTex, uv).rgb;
+    float s=sin(3.14159265*uv.y*uGame.y); c*=mix(1.0-uScan,1.0,s*s);
+    float ph=mod(floor(uv.x*uGame.x),3.0); vec3 t=vec3(1.0-uMask);
+    if(ph<0.5)t.r=1.0; else if(ph<1.5)t.g=1.0; else t.b=1.0; c*=t;
+    c*=1.0-uVig*dot(p,p)*0.5;
+    gl_FragColor = vec4(c, 1.0);
+  }`;
+
+function crtProgram(gl, fs) {
+  const mk = (ty, src) => { const sh = gl.createShader(ty); gl.shaderSource(sh, src); gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) { console.warn("CRT shader:", gl.getShaderInfoLog(sh)); return null; } return sh; };
+  const v = mk(gl.VERTEX_SHADER, CRT_VS), f = mk(gl.FRAGMENT_SHADER, fs);
+  if (!v || !f) return null;
+  const prog = gl.createProgram(); gl.attachShader(prog, v); gl.attachShader(prog, f); gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { console.warn("CRT link:", gl.getProgramInfoLog(prog)); return null; }
+  return { prog, loc: gl.getAttribLocation(prog, "aPos"), uni: {
+    game: gl.getUniformLocation(prog, "uGame"), filter: gl.getUniformLocation(prog, "uFilter"),
+    scan: gl.getUniformLocation(prog, "uScan"), mask: gl.getUniformLocation(prog, "uMask"),
+    vig: gl.getUniformLocation(prog, "uVig"), curve: gl.getUniformLocation(prog, "uCurve"),
+    tex: gl.getUniformLocation(prog, "uTex"),
+  } };
+}
+
+function crtInit(canvas) {
+  const gl = canvas.getContext("webgl", { premultipliedAlpha: false, antialias: false, preserveDrawingBuffer: true });
+  if (!gl) return null;
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  const overlay = crtProgram(gl, CRT_FS_OVERLAY), sample = crtProgram(gl, CRT_FS_SAMPLE);
+  if (!overlay || !sample) return null;
+  const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  // No UNPACK_FLIP_Y: the vertex shader already flips Y (vUv.y=0 at top), so an
+  // unflipped texture upload maps screen-top -> game-top correctly.
+  return { gl, buf, overlay, sample, tex };
+}
+
+function crtBind(p) {
+  const gl = crtGL.gl;
+  gl.useProgram(p.prog);
+  gl.bindBuffer(gl.ARRAY_BUFFER, crtGL.buf);
+  gl.enableVertexAttribArray(p.loc);
+  gl.vertexAttribPointer(p.loc, 2, gl.FLOAT, false, 0, 0);
+}
+
+// Match the overlay canvas to the game canvas (CSS box + backing at full DPR).
+function crtSize(cv, game) {
+  const r = game.getBoundingClientRect();
+  if (!r.width || !r.height) return null;
+  cv.style.left = r.left + "px"; cv.style.top = r.top + "px";
+  cv.style.width = r.width + "px"; cv.style.height = r.height + "px";
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }   // resize keeps the GL context/resources
+  return { w, h };
+}
+
+function crtStopSample() {
+  if (crtRAF) { cancelAnimationFrame(crtRAF); crtRAF = 0; }
+  if (crtStream) { try { crtStream.getTracks().forEach((t) => t.stop()); } catch (_) {} crtStream = null; }
+  if (crtVideo) { try { crtVideo.pause(); crtVideo.srcObject = null; } catch (_) {} crtVideo = null; }
+}
+
+function renderCrt() {
+  const cv = $("crt-canvas");
+  const game = document.querySelector("#dos canvas");
+  if (!cv || !game) return;
+  const def = FILTERS[getSetting("filter")];
+  if (def && def.sample && crtRAF) return;     // sample loop already running & self-sizing
+  crtStopSample();
+  // Colour-shift / blur ride on the game canvas's own CSS filter.
+  game.style.filter = (def && def.css) || "";
+  cv.style.mixBlendMode = (def && def.sample) ? "normal" : "multiply";
+  if (!def) { cv.classList.remove("on"); return; }
+  const size = crtSize(cv, game);
+  if (!size) return;
+  if (!crtGL) crtGL = crtInit(cv);
+  if (!crtGL) { cv.classList.remove("on"); return; }
+  const { gl } = crtGL;
+
+  if (def.sample) { cv.classList.add("on"); startCrtSampleLoop(cv, game, def); return; }
+  if (!def.type) { cv.classList.remove("on"); return; }   // CSS-only filter, no overlay
+
+  crtBind(crtGL.overlay);
+  const u = crtGL.overlay.uni;
+  gl.viewport(0, 0, size.w, size.h);
+  gl.uniform2f(u.game, GAME_W, GAME_H);
+  gl.uniform1i(u.filter, def.type);
+  gl.uniform1f(u.scan, def.scan);
+  gl.uniform1f(u.mask, def.mask);
+  gl.uniform1f(u.vig, def.vig);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  cv.classList.add("on");
+}
+
+// Capture the game and re-render it warped, every frame, into our (opaque) canvas
+// which covers the flat original. Only used by sampling filters (curved).
+function startCrtSampleLoop(cv, game, def) {
+  const gl = crtGL.gl;
+  try {
+    crtStream = game.captureStream();
+    crtVideo = document.createElement("video");
+    crtVideo.muted = true; crtVideo.playsInline = true; crtVideo.srcObject = crtStream;
+    crtVideo.play().catch(() => {});
+  } catch (e) {
+    console.warn("CRT capture failed:", e);
+    cv.classList.remove("on"); cv.style.mixBlendMode = "multiply"; return;
+  }
+  const u = crtGL.sample.uni;
+  const draw = () => {
+    crtRAF = requestAnimationFrame(draw);
+    if (!crtVideo || crtVideo.readyState < 2) return;
+    const s = crtSize(cv, game); if (!s) return;
+    crtBind(crtGL.sample);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, crtGL.tex);
+    try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, crtVideo); } catch (_) { return; }
+    gl.viewport(0, 0, s.w, s.h);
+    gl.uniform1i(u.tex, 0);
+    gl.uniform2f(u.game, GAME_W, GAME_H);
+    gl.uniform1f(u.scan, def.scan);
+    gl.uniform1f(u.mask, def.mask);
+    gl.uniform1f(u.vig, def.vig);
+    gl.uniform1f(u.curve, def.curve);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  };
+  draw();
+}
+
+// Keep the overlay aligned as the canvas mounts (async) / resizes / fullscreens.
+function startCrtSync() {
+  if (crtStop) return;
+  const dos = $("dos");
+  const ro = (typeof ResizeObserver !== "undefined") ? new ResizeObserver(renderCrt) : null;
+  if (ro && dos) ro.observe(dos);
+  const onResize = () => renderCrt();
+  window.addEventListener("resize", onResize);
+  document.addEventListener("fullscreenchange", onResize);
+  let tries = 0;
+  const poll = setInterval(() => {
+    const c = document.querySelector("#dos canvas");
+    if (c) { if (ro) ro.observe(c); renderCrt(); }
+    if (c || ++tries > 25) clearInterval(poll);
+  }, 200);
+  crtStop = () => {
+    if (ro) ro.disconnect();
+    window.removeEventListener("resize", onResize);
+    document.removeEventListener("fullscreenchange", onResize);
+    clearInterval(poll);
+  };
+}
+
 function setupTouchControls() {
   document.querySelectorAll("#touch-controls [data-keys]").forEach(bindTouchButton);
   setupJoystick();
@@ -655,11 +863,15 @@ async function importSave(file) {
 // ---- settings UI -----------------------------------------------------------
 
 function setupSettings() {
-  [["set-aspect", "aspect"], ["set-rendering", "rendering"], ["set-touch", "touch"], ["set-engine", "engine"]]
+  [["set-aspect", "aspect"], ["set-rendering", "rendering"], ["set-touch", "touch"], ["set-engine", "engine"], ["set-filter", "filter"]]
     .forEach(([id, key]) => {
       const sel = $(id);
+      if (!sel) return;
       sel.value = getSetting(key);
-      sel.addEventListener("change", () => setSetting(key, sel.value));
+      sel.addEventListener("change", () => {
+        setSetting(key, sel.value);
+        if (key === "filter") renderCrt();   // re-draw immediately if a game is running
+      });
     });
 }
 

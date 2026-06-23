@@ -15,7 +15,7 @@
   <script src="js/jsdos/js-dos.js"></script>
   <!-- vendored: tiny zip builder used to assemble .jsdos bundles from your own data files -->
   <script src="js/fflate.min.js"></script>
-  <link rel="stylesheet" href="css/app.css?v=18">
+  <link rel="stylesheet" href="css/app.css?v=19">
 </head>
 <body>
   <header id="topbar">
@@ -110,12 +110,28 @@
           <option value="dosboxX">DOSBox-X — real-time Save/Load states</option>
         </select>
       </label>
+      <label class="setting">Screen filter
+        <select id="set-filter">
+          <option value="off">Off — crisp pixels (default)</option>
+          <option value="scanlines">Scanlines</option>
+          <option value="crt">CRT — scanlines + mask + vignette</option>
+          <option value="curved">CRT curved — tube corners</option>
+          <option value="rgb">RGB — aperture mask</option>
+          <option value="soft">Soft — blurry pixels</option>
+          <option value="amber">Amber — monochrome CRT</option>
+          <option value="green">Green — phosphor CRT</option>
+        </select>
+      </label>
     </section>
   </main>
 
   <!-- The js-dos player mounts here when a game launches -->
   <div id="game-stage" class="game-stage" hidden>
     <div id="dos" class="dos-window"></div>
+
+    <!-- Visual filter overlay (scanlines / CRT). WebGL canvas sized to the game
+         canvas; scanline/mask pitch locked to the 320x200 grid. See app.js. -->
+    <canvas id="crt-canvas" class="crt-canvas" aria-hidden="true"></canvas>
 
     <!-- On-screen controls for touch devices. Sends key events straight to the
          emulator. Keen Vorticons defaults: arrows move, Ctrl=Jump, Alt=Pogo, Space=Fire. -->
@@ -183,6 +199,6 @@
     </p>
   </footer>
 
-  <script src="js/app.js?v=18"></script>
+  <script src="js/app.js?v=19"></script>
 </body>
 </html>

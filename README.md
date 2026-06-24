@@ -47,9 +47,12 @@ games. **Select (or drop) every file in the episode's folder** — at minimum:
 
 When the site is served by the container (not a static host like GitHub Pages), an optional
 **☁ Server sync** card appears. Turn it on to keep your saved games on the server too, so they
-outlive the browser and can be shared across devices. Each browser gets a long **sync key**; copy
-it to another device (or paste one in via *Use this key*) to share the same server-side saves.
-Newer save wins on each side. The feature is opt-in (off by default) and hidden entirely on static hosts.
+outlive the browser and can be shared across devices. Each browser gets a short 4-character **sync
+key** (legacy longer keys still work); copy it to another device (or paste one in via *Link another
+device*) to share the same server-side saves. Saves are tracked per episode with a 3-way state, so
+nothing is silently overwritten: when both sides have saves, linking asks which set to keep, and
+starting an episode whose cloud save diverges prompts which to play. **Stop syncing** disconnects
+while keeping both copies. The feature is opt-in (off by default) and hidden entirely on static hosts.
 
 Saves are stored in `SAVE_DIR` (default `/saves`) scoped by sync key — **mount a volume there**
 so they survive container updates: `-v keen123-saves:/saves`.

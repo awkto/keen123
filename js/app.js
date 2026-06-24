@@ -1362,17 +1362,21 @@ async function refreshSavesUI() {
   // --- Play hero CTA (per game) ---
   // Playable directly when: there's a local save, the game is free shareware, or
   // the server built a bundle for it. Otherwise it's bring-your-own files.
+  const playNow = () => {
+    if (hasSave) playSave(g);
+    else if (launchable[g]) playEpisode(g, launchable[g]);
+    else if (meta.free) playEpisode("keen1", launchable.keen1 || "games/keen1.jsdos");
+    else openByo();
+  };
   const playBtn = $("hero-play");
   if (playBtn) {
     playBtn.hidden = false;
     playBtn.textContent = `▶ Play Keen ${meta.n} — ${meta.title}`;
-    playBtn.onclick = () => {
-      if (hasSave) playSave(g);
-      else if (launchable[g]) playEpisode(g, launchable[g]);
-      else if (meta.free) playEpisode("keen1", launchable.keen1 || "games/keen1.jsdos");
-      else openByo();
-    };
+    playBtn.onclick = playNow;
   }
+  // The poster/banner is also a play affordance (consistent with zeliard/keen456).
+  const heroPoster = $("hero-poster");
+  if (heroPoster) { heroPoster.onclick = playNow; heroPoster.style.cursor = "pointer"; }
   // "load your files →" link: shown for BYO games that aren't server-bundled.
   const heroLink = $("hero-link");
   if (heroLink) {

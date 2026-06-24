@@ -149,7 +149,7 @@ select option { background: #0c0a22; color: var(--text); }
 
 /* hero */
 .hero-card { padding: 0; overflow: hidden; }
-.hero-poster { display: block; width: 100%; position: relative; height: 272px; background: #08061a; }
+.hero-poster { display: block; width: 100%; position: relative; height: 272px; background: #08061a; cursor: pointer; }
 .poster-bg { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 40%, #20407a, #0c0a22 74%); }
 .poster-scan { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,.3) 3px, transparent 4px); }
 .poster-fg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }

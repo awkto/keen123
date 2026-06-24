@@ -552,7 +552,7 @@ function disconnectSync(g) {
 // ---- settings (persisted in localStorage) ----------------------------------
 
 const SETTING_DEFAULTS = { aspect: "4/3", rendering: "pixelated", touch: "auto", engine: "dosbox", filter: "off",
-                           pogoRetract: "180", pogoAlt: "off" };
+                           pogoRetract: "180" };
 const getSetting = (k) => localStorage.getItem("keen." + k) || SETTING_DEFAULTS[k];
 const setSetting = (k, v) => localStorage.setItem("keen." + k, v);
 
@@ -628,7 +628,6 @@ async function launch(url, key) {
   // Apply the chosen visual filter and keep its overlay glued to the canvas.
   startCrtSync();
   renderCrt();
-  startPogoAlt();   // desktop Alt → pogo auto-retract, if enabled in Settings
 
   // Light background net (60s): persist + upload ONLY when the game actually wrote
   // a save — covers the game's own in-menu saves without churning the cloud or
@@ -852,40 +851,6 @@ function bindTouchButton(btn) {
   // iOS callout) that otherwise fire pointercancel mid-hold and drop the keys.
   btn.addEventListener("contextmenu", (e) => e.preventDefault());
   btn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
-}
-
-// Desktop "Pogo on desktop Alt" (opt-in): while a game runs, holding the physical
-// Alt key gets the same auto-retract as the touch POGO button, so a held Alt acts
-// like a tapped pogo (for the super-bounce). Alt is already pogo in the emulator;
-// this just applies the retract timer and stops the browser hijacking Alt.
-const ALT_POGO = 342;   // GLFW left-alt (pogo in Vorticons)
-let pogoAltDown = false, pogoAltTimer = null, pogoAltKeyHandler = null;
-function startPogoAlt() {
-  stopPogoAlt();
-  if (getSetting("pogoAlt") !== "on") return;
-  pogoAltKeyHandler = (e) => {
-    if (e.key !== "Alt" && e.code !== "AltLeft" && e.code !== "AltRight") return;
-    if (e.type === "keydown") {
-      e.preventDefault();
-      if (pogoAltDown) return;
-      pogoAltDown = true;
-      sendKey(ALT_POGO, true);
-      const ms = parseInt(getSetting("pogoRetract"), 10);
-      if (ms > 0) { clearTimeout(pogoAltTimer); pogoAltTimer = setTimeout(() => sendKey(ALT_POGO, false), ms); }
-    } else {
-      pogoAltDown = false;
-      clearTimeout(pogoAltTimer);
-      sendKey(ALT_POGO, false);
-    }
-  };
-  window.addEventListener("keydown", pogoAltKeyHandler, true);
-  window.addEventListener("keyup", pogoAltKeyHandler, true);
-}
-function stopPogoAlt() {
-  if (!pogoAltKeyHandler) return;
-  window.removeEventListener("keydown", pogoAltKeyHandler, true);
-  window.removeEventListener("keyup", pogoAltKeyHandler, true);
-  pogoAltKeyHandler = null; pogoAltDown = false; clearTimeout(pogoAltTimer);
 }
 
 // Virtual joystick -> arrow keys (8-way). Removes the dead center of a d-pad.
@@ -1554,12 +1519,6 @@ function setupSettings() {
       if (key === "filter") renderCrt();   // re-draw immediately if a game is running
     });
   });
-  // Toggle — Pogo on desktop Alt.
-  const pa = $("set-pogoAlt");
-  if (pa) {
-    pa.checked = getSetting("pogoAlt") === "on";
-    pa.addEventListener("change", () => setSetting("pogoAlt", pa.checked ? "on" : "off"));
-  }
 }
 
 // Console routing: top-bar nav (How to play/Settings), the game tabs (desktop +

@@ -123,10 +123,9 @@ select option { background: #0c0a22; color: var(--text); }
 .game-tab.synced .gt-status { color: var(--good); }
 .game-tab.synced .gt-status .gt-dot { background: var(--good); }
 
-/* When a global view (How to play / Settings) is showing, hide the game bar
-   and dim no tab; the game bar is only meaningful on the Play view. */
-.console[data-view="howto"] .game-bar,
-.console[data-view="settings"] .game-bar { display: none; }
+/* Keep the game-selector bar visible on the global (How to play / Settings) views
+   so a game tab is always there to click back to Play. No tab is highlighted while
+   a global view is open (handled in setView). */
 
 .console-body { padding: 18px 26px 26px; }
 

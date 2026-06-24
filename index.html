@@ -21,7 +21,7 @@
   <script src="js/jsdos/js-dos.js?v=3"></script>
   <!-- vendored: tiny zip builder used to assemble .jsdos bundles from your own data files -->
   <script src="js/fflate.min.js"></script>
-  <link rel="stylesheet" href="css/app.css?v=22">
+  <link rel="stylesheet" href="css/app.css?v=23">
 </head>
 <body>
   <!-- ===================== LAUNCHER (the "console") =====================
@@ -45,7 +45,8 @@
         </nav>
       </header>
 
-      <!-- game selector bar (only meaningful on the Play view; hidden on global views) -->
+      <!-- game selector bar — stays visible on global views too, so a game tab is
+           always available to return to Play (no tab highlighted while global). -->
       <div class="game-bar" id="game-bar">
         <div class="game-bar-head"><span class="game-bar-label">Choose game</span><span class="game-bar-rule"></span></div>
         <div class="game-tabs" id="game-tabs">
@@ -241,11 +242,6 @@
                   <option value="300">300 ms</option>
                 </select>
               </div>
-              <div class="set-row"><span class="set-label">Pogo on desktop Alt</span>
-                <label class="switch" title="Treat the desktop Alt key as a pogo press">
-                  <input type="checkbox" id="set-pogoAlt"><span class="switch-knob"></span>
-                </label>
-              </div>
             </div>
           </div>
         </section>
@@ -417,6 +413,6 @@
   <!-- Sets window.ZELIARD_SYNC_BASE before app.js. Empty on web (same-origin sync);
        the APK ships a copy pointing at a real server. Must load before app.js. -->
   <script src="js/sync-config.js?v=1"></script>
-  <script src="js/app.js?v=22"></script>
+  <script src="js/app.js?v=23"></script>
 </body>
 </html>

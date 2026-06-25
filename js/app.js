@@ -613,7 +613,22 @@ async function launch(url, key) {
   // progress); otherwise boot the supplied bundle. Baseline the change-detector
   // to the booted state so the first capture isn't a false "changed".
   let bootUrl = url;
-  const saved = await saveGet(key);
+  let saved = await saveGet(key);
+  if (saved) {
+    // Reject a poisoned snapshot — one whose contents are a DIFFERENT episode than
+    // its slot (a leftover from the old stale-bundle window when every game booted
+    // Keen 2). Discard it (local + cloud) and boot the real bundle instead, so we
+    // never replay the wrong game. Auto-heals affected devices on the next launch.
+    const want = epOfKey(key), got = await snapshotEpisode(saved);
+    if (want && got && got !== want) {
+      await saveDelete(key);
+      localStorage.removeItem("keen.save.modified." + key);
+      localStorage.removeItem("keen.save.synced." + key);
+      if (serverMode && syncEnabled(key)) await deleteServerSlot(key);
+      saved = null;
+      bootUrl = launchable[key] || ("games/keen" + want + ".jsdos");
+    }
+  }
   if (saved) {
     savedBlobUrl = URL.createObjectURL(saved); bootUrl = savedBlobUrl;
     try { lastFsSig[key] = fsSignature(new Uint8Array(await saved.arrayBuffer())); } catch (_) { lastFsSig[key] = null; }
@@ -1428,6 +1443,23 @@ async function refreshSavesUI() {
 // Resume a stored episode straight from its IndexedDB snapshot — honour sync
 // state first (cloud may be newer / diverged). launch() boots from the snapshot
 // for this key, so the passed URL is just a placeholder for empty-browser cases.
+// Which episode does a snapshot bundle actually contain? (KEENx.EXE / *.CKx)
+async function snapshotEpisode(blob) {
+  try {
+    const buf = new Uint8Array(await blob.arrayBuffer());
+    for (const n of Object.keys(fflate.unzipSync(buf))) {
+      const m = n.match(/^KEEN([123])\.EXE$/i) || n.match(/\.CK([123])$/i);
+      if (m) return m[1];
+    }
+  } catch (_) {}
+  return null;
+}
+
+// Delete this game's server slot (used to drop a poisoned cloud save).
+async function deleteServerSlot(g) {
+  try { await fetch(apiUrl("saves/" + SERVER_SLOT), { method: "DELETE", headers: { "X-Client-Id": getSyncId(g) } }); } catch (_) {}
+}
+
 async function playSave(key) {
   const blob = await saveGet(key);
   const url = blob ? URL.createObjectURL(blob) : (launchable[key] || "games/keen1.jsdos");

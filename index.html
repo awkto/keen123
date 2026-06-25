@@ -242,6 +242,11 @@
                   <option value="300">300 ms</option>
                 </select>
               </div>
+              <div class="set-row"><span class="set-label">Sync server</span>
+                <input id="set-sync-base" type="url" inputmode="url" spellcheck="false"
+                       autocomplete="off" autocapitalize="off" placeholder="(this site)"
+                       style="flex:1;min-width:0;max-width:240px">
+              </div>
             </div>
           </div>
         </section>
@@ -413,6 +418,6 @@
   <!-- Sets window.ZELIARD_SYNC_BASE before app.js. Empty on web (same-origin sync);
        the APK ships a copy pointing at a real server. Must load before app.js. -->
   <script src="js/sync-config.js?v=1"></script>
-  <script src="js/app.js?v=25"></script>
+  <script src="js/app.js?v=26"></script>
 </body>
 </html>

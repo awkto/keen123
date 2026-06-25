@@ -186,12 +186,16 @@ async function captureSave(key) {
 // its own server slot. Presence is detected by probing /api/health; the whole
 // feature stays hidden when that 404s.
 let serverMode = false;
-// Sync target. Same-origin by default (web container). A build can point it at a
-// remote server by setting window.ZELIARD_SYNC_BASE (the APK does this via
-// js/sync-config.js, so the packaged app can still reach a real server).
-const SYNC_RAW = (window.ZELIARD_SYNC_BASE || "").trim();
-const SYNC_BASE = SYNC_RAW ? SYNC_RAW.replace(/\/+$/, "") + "/" : "";
-const apiUrl = (p) => new URL("api/" + p, SYNC_BASE || document.baseURI).href;
+// Sync target, resolved live so it can change at runtime (Settings ▸ Sync server):
+//   in-app override (localStorage) -> baked default (window.ZELIARD_SYNC_BASE, set
+//   by the APK build via js/sync-config.js) -> same-origin (web container, blank).
+// The APK now ships unconfigured (blank) — the user points it at a server in
+// Settings; until then the sync card is grayed out.
+const SYNC_OVERRIDE_KEY = "keen.syncBase";
+const syncBaseDefault = () => (window.ZELIARD_SYNC_BASE || "").trim();
+const syncBaseRaw = () => (localStorage.getItem(SYNC_OVERRIDE_KEY) || "").trim() || syncBaseDefault();
+const syncBase = () => { const r = syncBaseRaw(); return r ? r.replace(/\/+$/, "") + "/" : ""; };
+const apiUrl = (p) => new URL("api/" + p, syncBase() || document.baseURI).href;
 
 // PER-GAME sync model. Each game (keen1/keen2/keen3) carries its OWN 4-char sync
 // key, its OWN on/off flag (default off — opt-in), and its OWN server slot. The
@@ -481,10 +485,12 @@ async function confirmConflict() {
 // handlers read currentGame() at click time). On a static host (no backend) the
 // card stays hidden and a short explainer shows instead.
 function setupCloudSync() {
-  if (!serverMode) { const a = $("cloud-absent-note"); if (a) a.hidden = false; return; }
   const card = $("cloud-card");
   if (!card) return;
+  // Always show the card and bind its controls; when no reachable server is
+  // configured we gray it out (see applySyncAvailability) instead of hiding it.
   card.hidden = false;
+  const absent = $("cloud-absent-note"); if (absent) absent.hidden = true;
 
   const toggle = $("set-sync");
   if (toggle) {
@@ -533,7 +539,22 @@ function setupCloudSync() {
         linkToKey, currentGame, selectGame };
     }
   } catch (_) {}
+  applySyncAvailability();
   refreshCloudUI();
+}
+
+// Gray out the sync controls when no reachable server is configured, with a hint
+// to set one in Settings ▸ Sync server. (The APK ships unconfigured; the web
+// container syncs same-origin so this stays enabled there.)
+function applySyncAvailability() {
+  const card = $("cloud-card"); if (!card) return;
+  ["set-sync", "sync-copy", "sync-link-open", "sync-apply", "sync-id-input", "sync-disconnect"]
+    .forEach((id) => { const el = $(id); if (el) el.disabled = !serverMode; });
+  card.style.opacity = serverMode ? "" : "0.55";
+  if (!serverMode) {
+    const ln = $("link-row"); if (ln) ln.hidden = true;
+    setSyncStatus("⚙ Configure a sync server first — Settings ▸ Sync server.");
+  }
 }
 
 // Disconnect ONE game on this device WITHOUT deleting anything: keep its local
@@ -1527,6 +1548,22 @@ function setupSettings() {
     sel.addEventListener("change", () => setSetting(key, sel.value));
   });
   setupFilterSelect();
+
+  // Sync server (runtime-configurable). Blank = same-origin (web) / unconfigured
+  // (APK). Saving reloads so server detection + all sync UI rebuild cleanly.
+  const sb = $("set-sync-base");
+  if (sb) {
+    sb.value = localStorage.getItem(SYNC_OVERRIDE_KEY) || "";
+    const nativeApk = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    sb.placeholder = syncBaseDefault() || (nativeApk ? "https://keen123.box.dnsif.ca/" : "(this site)");
+    sb.addEventListener("change", () => {
+      const v = sb.value.trim();
+      if (v) localStorage.setItem(SYNC_OVERRIDE_KEY, v);
+      else localStorage.removeItem(SYNC_OVERRIDE_KEY);
+      location.reload();
+    });
+    sb.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); sb.blur(); } });
+  }
 }
 
 // The screen-filter <select>.
